@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>잡히면 #윤밥사</title>
+  <style>
+    html,body{height:100%;margin:0;background:#080b18;color:#fff;font-family:'Nanum Gothic','Apple SD Gothic Neo',sans-serif}
+    body{display:grid;place-items:center;text-align:center}
+    .loader{padding:28px}.title{font-size:clamp(28px,6vw,64px);font-weight:800;margin-bottom:14px}.status{opacity:.75}
+  </style>
+</head>
+<body>
+  <div class="loader"><div class="title">잡히면 #윤밥사</div><div class="status">게임을 불러오는 중입니다…</div></div>
+  <script>
+    (async()=>{
+      const files=[
+        'source-parts/index-01.part','source-parts/index-02.part','source-parts/index-03.part',
+        'source-parts/index-04.part','source-parts/index-05.part','source-parts/index-06.part'
+      ];
+      try{
+        const responses=await Promise.all(files.map(file=>fetch(file,{cache:'no-store'})));
+        const failed=responses.find(response=>!response.ok);
+        if(failed) throw new Error('게임 파일을 불러오지 못했습니다: '+failed.status);
+        const html=(await Promise.all(responses.map(response=>response.text()))).join('');
+        document.open();
+        document.write(html);
+        document.close();
+      }catch(error){
+        document.querySelector('.status').textContent='로딩 오류: '+error.message;
+        console.error(error);
+      }
+    })();
+  </script>
+</body>
+</html>
