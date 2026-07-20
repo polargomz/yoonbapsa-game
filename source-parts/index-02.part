@@ -1,0 +1,116 @@
+    @media (max-width: 560px) {
+      .side { grid-template-columns:1fr; }
+      .stage { height:62vh; min-height:430px; }
+    }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <section class="stage" aria-label="게임 화면">
+      <canvas id="game" width="920" height="720"></canvas>
+    </section>
+    <aside class="side">
+      <section class="card">
+        <h1>잡히면 #윤밥사</h1>
+        <p class="tagline">윤상용이 인세를 전부 챙길 때까지 곰과 다람쥐를 피해 다니세요.</p>
+      </section>
+      <section class="card">
+        <div class="stat"><span>먹은 인세</span><strong id="score">0</strong></div>
+        <div class="stat"><span>남은 인세</span><strong id="remaining">0</strong></div>
+        <p class="status" id="status">시작 버튼을 누르거나 스페이스바를 누르세요.</p>
+        <button id="startBtn">게임 시작</button>
+      </section>
+      <section class="card">
+        <strong>등장인물</strong>
+        <div class="legend">
+          <div class="legend-item"><div class="avatar player">윤</div><div><b>윤상용</b><br>안경을 쓰고 인세를 모읍니다.</div></div>
+          <div class="legend-item"><div class="avatar bear">곰</div><div><b>정대원</b><br>최단 경로로 집요하게 추격합니다.</div></div>
+          <div class="legend-item"><div class="avatar squirrel">람</div><div><b>정보람</b><br>앞길을 예상해 가로막습니다.</div></div>
+        </div>
+      </section>
+      <section class="card">
+        <strong>조작</strong>
+        <div class="keys"><kbd>↑</kbd><kbd>↓</kbd><kbd>←</kbd><kbd>→</kbd><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd></div>
+      </section>
+      <section class="card dpad" aria-label="모바일 방향키">
+        <button class="up" data-dir="up">▲</button>
+        <button class="left" data-dir="left">◀</button>
+        <button class="down" data-dir="down">▼</button>
+        <button class="right" data-dir="right">▶</button>
+      </section>
+    </aside>
+  </main>
+
+<script>
+(() => {
+  'use strict';
+  const canvas = document.getElementById('game');
+  const ctx = canvas.getContext('2d');
+  const scoreEl = document.getElementById('score');
+  const remainingEl = document.getElementById('remaining');
+  const statusEl = document.getElementById('status');
+  const startBtn = document.getElementById('startBtn');
+
+  const TILE = 36;
+  const MAP = [
+    '#####################',
+    '#.........#.........#',
+    '#.###.###.#.###.###.#',
+    '#.#.....#...#.....#.#',
+    '#.#.###.#####.###.#.#',
+    '#...#.........#.....#',
+    '###.#.###.###.#.###.#',
+    '#.....#...#...#.....#',
+    '#.###.#.#####.#.###.#',
+    '#...#...#...#...#...#',
+    '###.###.#.#.#.###.###',
+    '#.......#.#.#.......#',
+    '#.#####.#.#.#.#####.#',
+    '#.........#.........#',
+    '#####################'
+  ];
+  const ROWS = MAP.length;
+  const COLS = MAP[0].length;
+  const mazeW = COLS * TILE;
+  const mazeH = ROWS * TILE;
+  const offsetX = Math.round((canvas.width - mazeW) / 2);
+  const offsetY = 118;
+
+  const DIRS = {
+    up:    {r:-1,c:0, angle:-Math.PI/2},
+    down:  {r:1,c:0, angle:Math.PI/2},
+    left:  {r:0,c:-1, angle:Math.PI},
+    right: {r:0,c:1, angle:0}
+  };
+  const OPP = {up:'down',down:'up',left:'right',right:'left'};
+
+  let state = 'title';
+  let last = 0;
+  let elapsed = 0;
+  let coins = new Set();
+  let collected = 0;
+  let player, enemies, particles;
+  let loseTimer = 0;
+  let stoneY = -180;
+  let shake = 0;
+  let winningTimer = 0;
+
+  function cellKey(r,c){ return `${r},${c}`; }
+  function isOpen(r,c){ return r>=0 && c>=0 && r<ROWS && c<COLS && MAP[r][c] !== '#'; }
+  function center(r,c){ return {x:offsetX + c*TILE + TILE/2, y:offsetY + r*TILE + TILE/2}; }
+
+  function makeEntity(r,c,speed,dir='left'){
+    const p = center(r,c);
+    return {r,c,x:p.x,y:p.y,fromR:r,fromC:c,toR:r,toC:c,progress:1,speed,dir,nextDir:dir,moving:false};
+  }
+
+  function resetGame(startImmediately=false){
+    coins = new Set();
+    for(let r=0;r<ROWS;r++) for(let c=0;c<COLS;c++) if(isOpen(r,c)) coins.add(cellKey(r,c));
+    player = makeEntity(13,1,5.15,'right');
+    enemies = [
+      {...makeEntity(1,19,3.45,'left'), type:'bear', name:'정대원'},
+      {...makeEntity(7,10,3.75,'left'), type:'squirrel', name:'정보람'}
+    ];
+    [player,...enemies].forEach(e => coins.delete(cellKey(e.r,e.c)));
+    particles=[]; collected=0; loseTimer=0; stoneY=-180; shake=0; winningTimer=0;
