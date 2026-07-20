@@ -1,0 +1,69 @@
+    ctx.lineJoin='round'; ctx.lineWidth=12; ctx.strokeStyle='#242833'; ctx.shadowColor='rgba(0,0,0,.85)'; ctx.shadowBlur=20; ctx.shadowOffsetY=12;
+    ctx.strokeText('#윤밥사',0,0);
+    const g=ctx.createLinearGradient(0,-42,0,38); g.addColorStop(0,'#d7d8dc'); g.addColorStop(.45,'#888d96'); g.addColorStop(1,'#484d56');
+    ctx.fillStyle=g; ctx.fillText('#윤밥사',0,0);
+    ctx.shadowBlur=0; ctx.shadowOffsetY=0; ctx.strokeStyle='rgba(30,33,40,.75)'; ctx.lineWidth=2;
+    const cracks=[[-95,-24,-72,-8],[-72,-8,-88,8],[18,-28,7,-8],[7,-8,23,5],[95,-18,78,0],[78,0,93,15]];
+    for(const [x1,y1,x2,y2] of cracks){ ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke(); }
+    ctx.restore();
+  }
+
+  function drawOverlay(){
+    if(state==='title'){
+      ctx.fillStyle='rgba(1,3,8,.68)'; ctx.fillRect(0,0,canvas.width,canvas.height);
+      ctx.textAlign='center';
+      ctx.font="800 46px 'Nanum Gothic', sans-serif"; ctx.fillStyle='#fff'; ctx.fillText('인세를 모두 챙겨라!',canvas.width/2,canvas.height/2-54);
+      ctx.font="700 18px 'Nanum Gothic', sans-serif"; ctx.fillStyle='#b8c2db'; ctx.fillText('정대원과 정보람에게 잡히면 먹은 인세가 전부 쏟아집니다.',canvas.width/2,canvas.height/2-12);
+      ctx.fillStyle='#ffd84d'; ctx.font="800 19px 'Nanum Gothic', sans-serif"; ctx.fillText('스페이스바 또는 오른쪽의 게임 시작 버튼',canvas.width/2,canvas.height/2+34);
+    }
+    if(state==='lost' || state==='winning'){
+      ctx.fillStyle='rgba(2,4,10,.52)'; ctx.fillRect(0,0,canvas.width,canvas.height);
+      ctx.textAlign='center';
+      ctx.font="800 45px 'Nanum Gothic', sans-serif";
+      ctx.fillStyle=state==='winning'?'#ffe05d':'#ff7182';
+      ctx.fillText(state==='winning'?'인세 회수 성공!':'잡혔다!',canvas.width/2,canvas.height/2+100);
+      ctx.font="700 17px 'Nanum Gothic', sans-serif"; ctx.fillStyle='#f2f5ff';
+      ctx.fillText(state==='winning'?'윤상용이 모든 인세를 안전하게 챙겼습니다.':'스페이스바를 눌러 다시 도전하세요.',canvas.width/2,canvas.height/2+137);
+    }
+  }
+
+  function draw(){
+    ctx.save();
+    if(shake>0) ctx.translate((Math.random()-.5)*shake,(Math.random()-.5)*shake);
+    drawBackground(); drawMaze(); drawCoins();
+    for(const e of enemies) e.type==='bear'?drawBear(e):drawSquirrel(e);
+    drawPlayer(player); drawParticles(); drawStoneText(); drawOverlay();
+    ctx.restore();
+  }
+
+  function loop(ts){
+    const dt=Math.min(.035,(ts-last)/1000 || 0); last=ts;
+    update(dt); draw(); requestAnimationFrame(loop);
+  }
+
+  function setDirection(name){
+    if(state==='title' || state==='lost' || state==='winning') return;
+    player.nextDir=name;
+  }
+
+  const keyMap={ArrowUp:'up',w:'up',W:'up',ArrowDown:'down',s:'down',S:'down',ArrowLeft:'left',a:'left',A:'left',ArrowRight:'right',d:'right',D:'right'};
+  window.addEventListener('keydown',e=>{
+    if(e.code==='Space'){
+      e.preventDefault();
+      if(state!=='playing' && state!=='losing') beginGame();
+      return;
+    }
+    if(keyMap[e.key]){ e.preventDefault(); setDirection(keyMap[e.key]); }
+  },{passive:false});
+  startBtn.addEventListener('click',beginGame);
+  document.querySelectorAll('[data-dir]').forEach(btn=>{
+    const act=e=>{e.preventDefault(); setDirection(btn.dataset.dir);};
+    btn.addEventListener('pointerdown',act,{passive:false});
+  });
+
+  resetGame(false);
+  requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>
