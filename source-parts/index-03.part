@@ -1,0 +1,122 @@
+    state = startImmediately ? 'playing' : 'title';
+    scoreEl.textContent='0';
+    remainingEl.textContent=coins.size;
+    statusEl.textContent = startImmediately ? '인세를 전부 먹으면 승리합니다!' : '시작 버튼을 누르거나 스페이스바를 누르세요.';
+    startBtn.textContent = startImmediately ? '처음부터 다시' : '게임 시작';
+  }
+
+  function beginGame(){ resetGame(true); }
+
+  function canMove(entity, dirName){
+    const d=DIRS[dirName];
+    return !!d && isOpen(entity.r+d.r, entity.c+d.c);
+  }
+
+  function beginStep(entity, dirName){
+    if(!canMove(entity,dirName)) { entity.moving=false; return false; }
+    const d=DIRS[dirName];
+    entity.dir=dirName;
+    entity.fromR=entity.r; entity.fromC=entity.c;
+    entity.toR=entity.r+d.r; entity.toC=entity.c+d.c;
+    entity.progress=0; entity.moving=true;
+    return true;
+  }
+
+  function advanceEntity(entity, dt, chooseNext){
+    let distance = entity.speed * dt;
+    while(distance > 0){
+      if(!entity.moving){
+        const dir = chooseNext(entity);
+        if(!dir || !beginStep(entity,dir)) break;
+      }
+      const remain = 1 - entity.progress;
+      if(distance < remain){ entity.progress += distance; distance=0; }
+      else {
+        distance -= remain;
+        entity.progress=1;
+        entity.r=entity.toR; entity.c=entity.toC;
+        const p=center(entity.r,entity.c); entity.x=p.x; entity.y=p.y;
+        entity.moving=false;
+        if(entity===player) collectCoin();
+      }
+      if(entity.moving){
+        const a=center(entity.fromR,entity.fromC), b=center(entity.toR,entity.toC);
+        const t=entity.progress;
+        entity.x=a.x+(b.x-a.x)*t; entity.y=a.y+(b.y-a.y)*t;
+      }
+    }
+  }
+
+  function playerChoice(e){
+    if(canMove(e,e.nextDir)) return e.nextDir;
+    if(canMove(e,e.dir)) return e.dir;
+    return null;
+  }
+
+  function projectedPlayerCell(steps){
+    let r=player.r, c=player.c;
+    const d=DIRS[player.dir] || DIRS.right;
+    for(let i=0;i<steps;i++){
+      if(!isOpen(r+d.r,c+d.c)) break;
+      r+=d.r; c+=d.c;
+    }
+    return {r,c};
+  }
+
+  function bfsDistances(targetR,targetC){
+    const dist=Array.from({length:ROWS},()=>Array(COLS).fill(Infinity));
+    const q=[];
+    if(!isOpen(targetR,targetC)) return dist;
+    dist[targetR][targetC]=0; q.push([targetR,targetC]);
+    for(let i=0;i<q.length;i++){
+      const [r,c]=q[i];
+      for(const d of Object.values(DIRS)){
+        const nr=r+d.r,nc=c+d.c;
+        if(isOpen(nr,nc) && dist[nr][nc]===Infinity){ dist[nr][nc]=dist[r][c]+1; q.push([nr,nc]); }
+      }
+    }
+    return dist;
+  }
+
+  function enemyChoice(enemy){
+    const target = enemy.type==='squirrel' ? projectedPlayerCell(3) : {r:player.r,c:player.c};
+    const dist=bfsDistances(target.r,target.c);
+    let options=Object.keys(DIRS).filter(d=>canMove(enemy,d));
+    if(options.length>1) options=options.filter(d=>d!==OPP[enemy.dir]);
+    if(enemy.type==='squirrel' && Math.random()<0.16) return options[Math.floor(Math.random()*options.length)];
+    options.sort((a,b)=>{
+      const da=DIRS[a], db=DIRS[b];
+      return dist[enemy.r+da.r][enemy.c+da.c] - dist[enemy.r+db.r][enemy.c+db.c];
+    });
+    return options[0] || null;
+  }
+
+  function collectCoin(){
+    const key=cellKey(player.r,player.c);
+    if(coins.delete(key)){
+      collected++;
+      scoreEl.textContent=collected;
+      remainingEl.textContent=coins.size;
+      for(let i=0;i<5;i++){
+        particles.push({x:player.x,y:player.y,vx:(Math.random()-.5)*100,vy:(Math.random()-.5)*100-30,life:.35,size:2+Math.random()*3,kind:'spark'});
+      }
+      if(coins.size===0){
+        state='winning'; winningTimer=0;
+        statusEl.textContent='모든 인세를 챙겼습니다. 윤상용 승리!';
+        startBtn.textContent='한 판 더';
+      }
+    }
+  }
+
+  function triggerLose(enemy){
+    if(state!=='playing') return;
+    state='losing'; loseTimer=0; stoneY=-190; shake=0;
+    statusEl.textContent=`${enemy.name}에게 잡혔습니다. #윤밥사 낙하 중…`;
+    startBtn.textContent='다시 도전';
+  }
+
+  function spitCoins(){
+    const n=collected;
+    for(let i=0;i<n;i++){
+      const a=Math.random()*Math.PI*2;
+      const speed=130+Math.random()*360;
