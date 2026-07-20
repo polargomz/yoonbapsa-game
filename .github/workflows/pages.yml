@@ -24,13 +24,20 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
+      - name: Assemble static site
+        run: |
+          mkdir -p public
+          cat source-parts/index-*.part > public/index.html
+          touch public/.nojekyll
+          test -s public/index.html
+
       - name: Configure Pages
         uses: actions/configure-pages@v5
 
       - name: Upload static site
         uses: actions/upload-pages-artifact@v4
         with:
-          path: .
+          path: public
 
       - name: Deploy to GitHub Pages
         id: deployment
